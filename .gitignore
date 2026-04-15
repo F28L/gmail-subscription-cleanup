@@ -136,6 +136,7 @@ celerybeat.pid
 
 # Environments
 .env
+.env.local
 .envrc
 .venv
 env/
@@ -143,6 +144,18 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Credentials and tokens
+credentials/credentials.json
+token.json
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Streamlit secrets
+.streamlit/secrets.toml
 
 # Spyder project settings
 .spyderproject
