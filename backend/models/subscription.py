@@ -5,6 +5,10 @@ from enum import Enum
 
 
 class ScanDays(int, Enum):
+    ONE = 1
+    TWO = 2
+    THREE = 3
+    SEVEN = 7
     THIRTY = 30
     SIXTY = 60
     NINETY = 90

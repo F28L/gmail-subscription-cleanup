@@ -106,14 +106,8 @@ def init_session_state():
     if "subscriptions" not in st.session_state:
         st.session_state.subscriptions = []
 
-    if "marked_for_removal" not in st.session_state:
-        st.session_state.marked_for_removal = set()
-
     if "scan_days" not in st.session_state:
         st.session_state.scan_days = 30
-
-    if "refresh_trigger" not in st.session_state:
-        st.session_state.refresh_trigger = 0
 
 
 def main():
@@ -162,7 +156,14 @@ def main():
 
         st.markdown("---")
 
-        days_options = {"30 days": 30, "60 days": 60, "90 days": 90}
+        days_options = {
+            "1 day": 1,
+            "2 days": 2,
+            "7 days": 7,
+            "30 days": 30,
+            "60 days": 60,
+            "90 days": 90,
+        }
         scan_days = st.selectbox(
             "Scan period",
             options=list(days_options.keys()),
@@ -225,9 +226,6 @@ def main():
 
             sub_with_emails = get_subscription_with_emails(sub.get("id", ""))
             if sub_with_emails:
-                sub_with_emails["marked_for_removal"] = (
-                    sub_with_emails.get("id") in st.session_state.marked_for_removal
-                )
                 subscriptions_with_details.append(sub_with_emails)
 
         progress_bar.empty()
@@ -236,15 +234,6 @@ def main():
         st.markdown(f"### Found {len(subscriptions_with_details)} Subscriptions")
 
         for sub in subscriptions_with_details:
-            sub["marked_for_removal"] = (
-                sub.get("id") in st.session_state.marked_for_removal
-            )
-
-            def on_keep(sid):
-                st.session_state.marked_for_removal.discard(sid)
-
-            def on_remove(sid):
-                st.session_state.marked_for_removal.add(sid)
 
             def on_generate(sid):
                 with st.spinner("Generating description..."):
@@ -260,33 +249,10 @@ def main():
                 else:
                     st.error("Failed to open unsubscribe page")
 
-            updated_sub = render_subscription_card(
+            render_subscription_card(
                 subscription=sub,
                 on_generate_description=on_generate,
                 on_unsubscribe=on_unsubscribe,
-                on_remove=on_remove,
-                on_keep=on_keep,
-            )
-
-        st.markdown("---")
-
-        marked_count = len(st.session_state.marked_for_removal)
-
-        if marked_count > 0:
-            st.warning(f"⚠️ {marked_count} subscription(s) marked for removal")
-
-            if st.button(f"📤 Unsubscribe from {marked_count} Marked"):
-                for sub_id in list(st.session_state.marked_for_removal):
-                    unsubscribe(sub_id)
-
-                st.session_state.marked_for_removal.clear()
-                st.success(
-                    "Unsubscribe pages opened! Complete each one in your browser."
-                )
-                st.rerun()
-        else:
-            st.info(
-                "💡 Use 'Remove' button on subscriptions you want to unsubscribe from"
             )
 
 

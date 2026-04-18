@@ -8,16 +8,15 @@ def render_subscription_card(
     expanded: bool = False,
     on_generate_description: Optional[callable] = None,
     on_unsubscribe: Optional[callable] = None,
-    on_remove: Optional[callable] = None,
-    on_keep: Optional[callable] = None,
 ):
     sub_id = subscription.get("id", "")
     name = subscription.get("name", "Unknown")
+    email = subscription.get("email", "")
+    unsubscribe_url = subscription.get("unsubscribe_url", "")
     description = subscription.get("description")
     email_count = subscription.get("email_count", 0)
     last_email = subscription.get("last_email_date")
     emails = subscription.get("emails", [])
-    is_marked_for_removal = subscription.get("marked_for_removal", False)
 
     if last_email:
         try:
@@ -33,11 +32,13 @@ def render_subscription_card(
 
     st.markdown("---")
 
-    col1, col2, col3 = st.columns([3, 1, 1])
+    col1, col2 = st.columns([3, 1])
 
     with col1:
-        status_indicator = "🔴" if is_marked_for_removal else "🟢"
-        st.markdown(f"### {status_indicator} {name}")
+        st.markdown(f"### {name}")
+
+        if email:
+            st.caption(f"📧 From: {email}")
 
         if description:
             st.caption(f"📝 {description}")
@@ -46,19 +47,18 @@ def render_subscription_card(
 
         st.caption(f"📧 {email_count} emails • Last: {last_email_str}")
 
-    with col2:
-        if on_keep and not is_marked_for_removal:
-            if st.button("✓ Keep", key=f"keep_{sub_id}", use_container_width=True):
-                on_keep(sub_id)
-                st.rerun()
-        elif is_marked_for_removal:
-            st.markdown("**Marked: Remove**")
+        if unsubscribe_url:
+            st.caption(f"🔗 [Unsubscribe link]({unsubscribe_url})")
 
-    with col3:
-        if on_unsubscribe:
-            if st.button("❌ Remove", key=f"remove_{sub_id}", use_container_width=True):
-                on_remove(sub_id)
-                st.rerun()
+    with col2:
+        if on_unsubscribe and unsubscribe_url:
+            if st.button(
+                "❌ Unsubscribe", key=f"unsubscribe_{sub_id}", use_container_width=True
+            ):
+                on_unsubscribe(sub_id)
+                st.success(
+                    "Opened unsubscribe page. Complete the process in your browser."
+                )
 
     expand_key = f"expand_{sub_id}"
 

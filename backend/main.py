@@ -56,7 +56,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8501", "http://127.0.0.1:8501"],
+    allow_origins=["http://localhost:8500", "http://127.0.0.1:8500"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -90,7 +90,7 @@ async def auth_callback(code: str, state: Optional[str] = None):
             status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to authenticate"
         )
 
-    frontend_url = f"http://localhost:8501"
+    frontend_url = f"http://localhost:8500"
     return RedirectResponse(url=frontend_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
@@ -131,12 +131,34 @@ async def scan_emails(request: ScanRequest):
     scan_status = ScanStatus(is_scanning=True)
 
     try:
+        import asyncio
+
         await clear_all_subscriptions()
 
-        messages = list(gmail_service.get_messages_in_date_range(days=request.days))
-        scan_status.messages_processed = len(messages)
+        max_messages = 100
 
-        domains = group_messages_by_domain(messages)
+        async def get_messages_with_limit():
+            raw = []
+            async for msg in gmail_service.get_messages_in_date_rangeAsync(
+                days=request.days
+            ):
+                raw.append(msg)
+                if len(raw) >= max_messages:
+                    break
+            return raw
+
+        raw_messages = await asyncio.wait_for(get_messages_with_limit(), timeout=60.0)
+        scan_status.messages_processed = len(raw_messages)
+
+        parsed_messages = []
+        for i, raw_msg in enumerate(raw_messages[:50]):
+            msg_id = raw_msg.get("id")
+            if msg_id:
+                parsed = gmail_service.parse_message_for_subscription(msg_id)
+                if parsed:
+                    parsed_messages.append(parsed)
+
+        domains = group_messages_by_domain(parsed_messages)
 
         for domain, domain_messages in domains.items():
             existing = await get_subscription_by_domain(domain)

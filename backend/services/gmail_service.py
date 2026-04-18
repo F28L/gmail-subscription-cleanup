@@ -82,6 +82,10 @@ class GmailService:
 
         return self.search_messages(query)
 
+    async def get_messages_in_date_rangeAsync(self, days: int = 30):
+        for msg in self.get_messages_in_date_range(days):
+            yield msg
+
     def parse_message_for_subscription(self, msg_id: str) -> Optional[dict]:
         raw_message = self._fetch_raw_message(msg_id)
         if not raw_message:
