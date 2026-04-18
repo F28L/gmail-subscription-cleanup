@@ -64,7 +64,7 @@ A web application that scans Gmail for promotional/subscription emails, extracts
 
 6. Move credentials:
    ```bash
-   mv ~/Downloads/client_secret.json credentials/credentials.json
+   mv ~/Users/sandeep/Downloads/client_secret_gmail_api.json credentials/credentials.json
    ```
 
 ### 2. Environment Variables

@@ -1,8 +1,8 @@
 import pytest
 import asyncio
 import os
-import aiosqlite
 from datetime import datetime
+
 
 TEST_DB_PATH = "./test_subscriptions.db"
 
@@ -49,3 +49,12 @@ def sample_email_data():
         "body_preview": "This is the full body preview of the email...",
         "date": datetime.utcnow(),
     }
+
+
+@pytest.fixture(scope="module")
+def api_client():
+    from fastapi.testclient import TestClient
+    from backend.main import app
+
+    with TestClient(app) as client:
+        yield client
