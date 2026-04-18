@@ -1,13 +1,18 @@
 import os
 import json
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING
 
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+
+if TYPE_CHECKING:
+    from google.auth.external_account_authorized_user import (
+        Credentials as ExternalCredentials,
+    )
 
 from backend.config import get_settings
 
@@ -19,14 +24,12 @@ SCOPES = [
 CREDENTIALS_PATH = Path("credentials/credentials.json")
 TOKEN_PATH = Path("token.json")
 
-_flow_instance: Optional[InstalledAppFlow] = None
-
 
 class GmailAuth:
     def __init__(self):
-        self._creds: Optional[Credentials] = None
+        self._creds = None
         self._redirect_uri = get_settings().redirect_uri
-        self._flow: Optional[InstalledAppFlow] = None
+        self._flow: InstalledAppFlow | None = None
         self._load_credentials()
 
     def _load_credentials(self) -> None:
@@ -50,20 +53,18 @@ class GmailAuth:
         return self._creds is not None and self._creds.valid
 
     def get_auth_url(self) -> str:
-        global _flow_instance
-
         if not CREDENTIALS_PATH.exists():
             raise FileNotFoundError(
                 f"Credentials file not found at {CREDENTIALS_PATH}. "
                 "Please download OAuth credentials from Google Cloud Console."
             )
 
-        _flow_instance = InstalledAppFlow.from_client_secrets_file(
+        self._flow = InstalledAppFlow.from_client_secrets_file(
             str(CREDENTIALS_PATH), SCOPES
         )
-        _flow_instance.redirect_uri = self._redirect_uri
+        self._flow.redirect_uri = self._redirect_uri
 
-        auth_url, _ = _flow_instance.authorization_url(
+        auth_url, _ = self._flow.authorization_url(
             access_type="offline",
             include_granted_scopes="true",
             prompt="consent",
@@ -71,52 +72,59 @@ class GmailAuth:
 
         return auth_url
 
-    def get_credentials(self) -> Optional[Credentials]:
+    def get_credentials(self) -> Credentials | None:
         if self.is_authenticated():
             return self._creds
         return None
 
-    def exchange_code_for_token(self, code: str, state: Optional[str] = None) -> bool:
-        global _flow_instance
-
+    def exchange_code_for_token(self, code: str, state: str | None = None) -> bool:
         try:
-            if _flow_instance is None:
-                _flow_instance = InstalledAppFlow.from_client_secrets_file(
+            if self._flow is None:
+                self._flow = InstalledAppFlow.from_client_secrets_file(
                     str(CREDENTIALS_PATH), SCOPES
                 )
-                _flow_instance.redirect_uri = self._redirect_uri
+                self._flow.redirect_uri = self._redirect_uri
 
             authorization_response = (
                 f"{self._redirect_uri}?code={code}&state={state or ''}"
             )
-            _flow_instance.fetch_token(authorization_response=authorization_response)
-            self._creds = _flow_instance.credentials
+            self._flow.fetch_token(authorization_response=authorization_response)
+            self._creds = self._flow.credentials
 
             self._save_credentials()
-            _flow_instance = None
+            self._flow = None
             return True
 
         except Exception as e:
             print(f"Error exchanging code: {e}")
-            _flow_instance = None
+            self._flow = None
             return False
 
-    def get_user_email(self) -> Optional[str]:
+    def get_user_email(self) -> str | None:
         if not self._creds:
             return None
 
-        return self._creds.id_token.get("email") if self._creds.id_token else None
+        if self._creds.id_token:
+            return self._creds.id_token.get("email")
+
+        try:
+            from googleapiclient.discovery import build
+
+            service = build("gmail", "v1", credentials=self._creds)
+            profile = service.users().getProfile(userId="me").execute()
+            return profile.get("emailAddress")
+        except Exception as e:
+            print(f"Error fetching user email: {e}")
+            return None
 
     def logout(self) -> None:
-        global _flow_instance
-
         if TOKEN_PATH.exists():
             TOKEN_PATH.unlink()
         self._creds = None
-        _flow_instance = None
+        self._flow = None
 
 
-_gmail_auth: Optional[GmailAuth] = None
+_gmail_auth: GmailAuth | None = None
 
 
 def get_gmail_auth() -> GmailAuth:
