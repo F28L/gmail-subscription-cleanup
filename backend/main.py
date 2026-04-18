@@ -4,6 +4,7 @@ from typing import Optional
 import asyncio
 
 from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import get_settings
@@ -80,16 +81,17 @@ async def get_oauth_url():
 
 
 @app.get("/auth/callback")
-async def auth_callback(code: str):
+async def auth_callback(code: str, state: Optional[str] = None):
     auth = get_gmail_auth()
-    success = auth.exchange_code_for_token(code)
+    success = auth.exchange_code_for_token(code, state)
 
     if not success:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to authenticate"
         )
 
-    return {"message": "Authentication successful"}
+    frontend_url = f"http://localhost:8501"
+    return RedirectResponse(url=frontend_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
 @app.get("/auth/status", response_model=AuthStatus)

@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings
 
 
 class StreamlitConfig(BaseSettings):
-    api_base_url: str = "http://localhost:8000"
+    api_base_url: str = "http://localhost:8500"
 
     class Config:
         extra = "ignore"
